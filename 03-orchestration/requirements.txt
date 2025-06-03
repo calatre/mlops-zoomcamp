@@ -1,0 +1,6 @@
+mlflow
+scikit-learn
+pandas
+hyperopt
+xgboost
+fastparquet
