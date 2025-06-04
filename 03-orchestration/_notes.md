@@ -57,5 +57,7 @@ Issue: not detecting xgboost.
 Guess will have to work out the docker image a bit:
 https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#special-case-adding-dependencies-via-requirements-txt-file
 
+Also, can't use "localhost" in the scripting from within airflow, as this is a containerized environment.
+
 
 

@@ -4,3 +4,4 @@ pandas
 hyperopt
 xgboost
 fastparquet
+python-dateutil

@@ -2,13 +2,14 @@
 # coding: utf-8
 
 """
-This script defines an Airflow DAG for orchestrating the training of a machine learning model to predict NYC taxi trip durations.
+This script defines an Airflow DAG for orchestrating the training of a simple machine learning model to predict NYC taxi trip durations.
 It includes tasks for setting up the environment, loading and preparing data, feature engineering, training the model with XGBoost, and validating the model performance using MLflow for experiment tracking.
 
 Used Claude Sonnet 4 for first draft.
 """
 
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta #to calculate relative dates
 import pickle
 from pathlib import Path
 
@@ -26,7 +27,7 @@ from airflow.models import Variable
 
 # Default arguments for the DAG
 default_args = {
-    'owner': 'ml-team',
+    'owner': 'andre',
     'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
     'email_on_failure': False,
@@ -46,10 +47,17 @@ dag = DAG(
     tags=['ml', 'xgboost', 'mlflow', 'taxi'],
 )
 
+#Trying to make these variables global
+mlflow.set_tracking_uri("http://03-orchestration-mlflow-1:5000") #docker container here
+mlflow.set_experiment("nyc-taxi-experiment")
+models_folder = Path('models')
+models_folder.mkdir(exist_ok=True)
 
-def setup_environment(**context):
+#Maybe not needed, but keeping for clarity
+def setup_environment(**context): 
     """Setup MLflow and create necessary directories"""
-    mlflow.set_tracking_uri("http://localhost:5000")
+    #mlflow.set_tracking_uri("http://localhost:5000") #default non containerized 
+    mlflow.set_tracking_uri("http://03-orchestration-mlflow-1:5000") #the docker container here
     mlflow.set_experiment("nyc-taxi-experiment")
     
     models_folder = Path('models')
@@ -60,10 +68,11 @@ def setup_environment(**context):
 
 def read_dataframe(year, month):
     """Read and preprocess taxi data"""
-    url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_{year}-{month:02d}.parquet'
+    url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year}-{month:02d}.parquet'
+    print(url)
     df = pd.read_parquet(url)
 
-    df['duration'] = df.lpep_dropoff_datetime - df.lpep_pickup_datetime
+    df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
     df.duration = df.duration.apply(lambda td: td.total_seconds() / 60)
 
     df = df[(df.duration >= 1) & (df.duration <= 60)]
@@ -76,21 +85,57 @@ def read_dataframe(year, month):
     return df
 
 
+def get_training_dates(**context):
+    """Calculate training and validation dates based on current execution date"""
+    #logical_date = context.get('logical_date')#, datetime.now())
+    logical_date = context['logical_date']
+    
+    # Training data: 4 months ago, because 2 months ago isn't available yet
+    train_date = logical_date - relativedelta(months=4)
+    train_year = train_date.year
+    train_month = train_date.month
+    
+    # Validation data: 3 months ago  
+    val_date = logical_date - relativedelta(months=3)
+    val_year = val_date.year
+    val_month = val_date.month
+    
+    print(f"Execution date: {logical_date.strftime('%Y-%m')}")
+    print(f"Training data: {train_year}-{train_month:02d}")
+    print(f"Validation data: {val_year}-{val_month:02d}")
+    
+    return {
+        'train_year': train_year,
+        'train_month': train_month,
+        'val_year': val_year,
+        'val_month': val_month
+    }
+
+
 def load_and_prepare_data(**context):
     """Load training and validation data"""
-    # Get parameters from Airflow Variables or use defaults
-    year = int(Variable.get("training_year", default_var=2024))
-    month = int(Variable.get("training_month", default_var=1))
+    # Get dates from previous task or calculate dynamically
+    task_instance = context['task_instance']
+    dates = task_instance.xcom_pull(task_ids='calculate_dates')
     
-    print(f"Loading data for year: {year}, month: {month}")
+    # Fallback to manual variables if needed
+    if not dates:
+        train_year = int(Variable.get("training_year", default_var=datetime.now().year))
+        train_month = int(Variable.get("training_month", default_var=datetime.now().month))
+        val_year = train_year if train_month < 12 else train_year + 1
+        val_month = train_month + 1 if train_month < 12 else 1
+    else:
+        train_year = dates['train_year']
+        train_month = dates['train_month']
+        val_year = dates['val_year']
+        val_month = dates['val_month']
     
-    # Load training data
-    df_train = read_dataframe(year=year, month=month)
+    print(f"Loading training data for: {train_year}-{train_month:02d}")
+    print(f"Loading validation data for: {val_year}-{val_month:02d}")
     
-    # Calculate next month for validation data
-    next_year = year if month < 12 else year + 1
-    next_month = month + 1 if month < 12 else 1
-    df_val = read_dataframe(year=next_year, month=next_month)
+    # Load training and validation data
+    df_train = read_dataframe(year=train_year, month=train_month)
+    df_val = read_dataframe(year=val_year, month=val_month)
     
     # Save dataframes for next tasks
     df_train.to_parquet('/tmp/df_train.parquet')
@@ -236,9 +281,19 @@ def validate_model(**context):
 
 
 # Define tasks
+""" 
+#Let's ignore this task for now, 
+#seems to work better as variables defined in the script than inside a task.
 setup_task = PythonOperator(
     task_id='setup_environment',
     python_callable=setup_environment,
+    dag=dag,
+)
+"""
+
+calculate_dates_task = PythonOperator(
+    task_id='calculate_dates',
+    python_callable=get_training_dates,
     dag=dag,
 )
 
@@ -247,7 +302,7 @@ load_data_task = PythonOperator(
     python_callable=load_and_prepare_data,
     dag=dag,
 )
-
+"""
 prepare_features_task = PythonOperator(
     task_id='prepare_features',
     python_callable=prepare_features,
@@ -259,14 +314,18 @@ train_model_task = PythonOperator(
     python_callable=train_model,
     dag=dag,
 )
-
+"""
+# Also not important at this point. 
+# Leaving it so it can be used later if needed.
+"""
 validate_model_task = PythonOperator(
     task_id='validate_model',
     python_callable=validate_model,
     dag=dag,
 )
+"""
 
-# Optional: Clean up temporary files
+# Optional but recommended: Clean up temporary files
 cleanup_task = BashOperator(
     task_id='cleanup_temp_files',
     bash_command='rm -f /tmp/df_train.parquet /tmp/df_val.parquet /tmp/X_*.pkl /tmp/y_*.pkl /tmp/dv.pkl',
@@ -274,4 +333,5 @@ cleanup_task = BashOperator(
 )
 
 # Define task dependencies
-setup_task >> load_data_task >> prepare_features_task >> train_model_task >> validate_model_task >> cleanup_task
+calculate_dates_task >> load_data_task >> cleanup_task
+#prepare_features_task >> train_model_task >>

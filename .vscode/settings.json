@@ -1,0 +1,4 @@
+{
+    "remote.WSL.useShellEnvironment": false,
+    "remote.WSL.debug": false
+}
