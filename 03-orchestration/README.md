@@ -184,16 +184,100 @@ executor               | CeleryExecutor
 
 ## (!In Construction!) Functional Part (!In Construction!)
 
+Here I will try to go briefly over "How" to use and test this setup once it's up and running. It is by no means an extensive guide, see it more as a "quick start" guide to what we are doing here.
+
 ### About Apache Airflow
 
+- To get the essentials of Apache Airflow, I recommend you to check out [Datacamp's _"Introduction to Apache Airflow in Python"_](https://app.datacamp.com/learn/courses/introduction-to-apache-airflow-in-python). I never used Airflow before, and in a couple hours I felt I was OK to go and try it.
+
+Apache Airflow is an open-source platform for programmatically authoring, scheduling, and monitoring workflows. 
+
+Designed for data orchestration, it allows users to define complex pipelines using Python. It  provides scheduling, error handling, and dependency management.
+
 ### About MLFlow
+- If you're comming from MLOps Zoomcamp, this is what [we covered previously in chapter 2](https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/02-experiment-tracking). We will simply be calling it from within Airflow now.
+
+MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. 
+
+It provides tools for experiment tracking, model packaging, reproducibility, and deployment.
+
+It simplifies collaboration across data teams by offering a unified framework to log parameters, metrics, and artifacts, and supports multiple ML libraries and environments. Its modular components (Tracking, Projects, Models, and Registry) enable scalable ML workflows.
 
 ### Creating Pipelines AKA 'DAGs'
 
-You put your adapted DAG Pipeline Python files in the DAG folder.
+In tools like Apache Airflow, pipelines are defined as Directed Acyclic Graphs (DAGs): each node represents a task, and edges define dependencies between tasks. 
 
+DAGs ensure tasks execute in a specific, non-cyclical order, enabling efficient workflow automation. You create them in code (e.g., Python), with features for retries, branching, and parallelism. This promotes maintainable, scalable, and reproducible pipeline design.
+
+**In practice:**
+
+It's a python script. With some extra stuff.
+
+1. You import airflow libraries.
+2. You initialize an Airflow DAG (python function with name, schedule, tags...) along with some default parameters in a dictionary.
+2. Define your functions. These can be your usual python code.
+3. You define the Airflow Tasks that go into your DAG.
+4. Inside each task, you will be calling "[airflow operators](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/operators.html)". 
+   1. Use a PythonOperator to run a Python function you defined above, a BashOperator to run a command in the shell, an EmailOperator for sending an email... 
+   2. ... or a _sensor_ for the task to be trigered by an external event, like a file appearing in a folder.
+5. You finish by describing your tasks orders and dependencies: task1 >> task 2 >> task3 ...
+   1. You can have a task depending on multiple tasks, or triggering multiple tasks or both. 
+6. You just can't close everything in a loop (remember the **A** in D**A**G stands for _**A**cyclic_ ), just schedule or use sensors smartly.
+7. Save it as a pyhton file. Drop it in the "/dags" folder in your airflow installation.
+8. Airflow regularly checks the folder for new/changed dags, or you can manually trigger a check from the UI or from the CLI using "airflow dags reserialize"
+
+**Visually, your Airflow script structure will look like this:**
+```mermaid
+flowchart TD
+	classDef leftAlign fill:#fff, stroke:#000, text-align:left;
+
+    A["`**1. Import Airflow Libraries**
+    from airflow import DAG
+    from airflow.operators.python import PythonOperator
+    from airflow.operators.bash import BashOperator
+    from airflow.sensors.* import *Sensor 
+	...`"]:::leftAlign --> B
+
+    B["`**2. Initialize DAG & Default Args**
+    default_args = {...}</b>
+    dag = DAG(
+        'dag_name',
+        schedule_interval='...',
+        tags=['...'],
+        default_args=default_args
+    )`"]:::leftAlign --> C
+
+    C["`**3. Define Python Functions**
+    def my_function():
+        # Your custom Python code
+    def another_function():
+        # More business logic
+	...`"]:::leftAlign --> D
+
+    D["`**4. Define Airflow Tasks**
+    task1 = PythonOperator(
+        task_id='run_function',
+        python_callable=my_function,
+        dag=dag
+    )
+    task2 = BashOperator(
+        task_id='run_command',
+        bash_command='echo Hello',
+        dag=dag
+    )
+	...`"]:::leftAlign --> E
+
+    E["`**5. Define Task Dependencies**
+    task1 >> task2 >> task3...`"]
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0
+    style E fill:#f1f8e9
+```
 ### Example Pipelines:
-
+(to do)
 #### simple_test_dag
 
 #### orchestrated-duration-prediction-dag
