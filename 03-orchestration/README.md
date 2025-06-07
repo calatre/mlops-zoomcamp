@@ -182,7 +182,7 @@ executor               | CeleryExecutor
 (...)
 ```
 
-## (!In Construction!) Functional Part (!In Construction!)
+## Functional Part
 
 Here I will try to go briefly over "How" to use and test this setup once it's up and running. It is by no means an extensive guide, see it more as a "quick start" guide to what we are doing here.
 
