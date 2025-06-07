@@ -268,7 +268,7 @@ flowchart TD
 	...`"]:::leftAlign --> E
 
     E["`**5. Define Task Dependencies**
-    task1 >> task2 >> task3...`"]
+    task1 >> task2 >> task3...`"]:::leftAlign
 
     style A fill:#e1f5fe
     style B fill:#f3e5f5
@@ -277,9 +277,144 @@ flowchart TD
     style E fill:#f1f8e9
 ```
 ### Example Pipelines:
-(to do)
+Within this setup, I created some pipelines in the /dags folder. Feel free to check them out and play around with them
+
+
 #### simple_test_dag
 
+Using a simpler style of definition, created the good old "Hello World", to validate if everything is working.
+
+Given its simplicity, there isn't even a need for some blocks such as defining logic or task dependencies.
+
+```mermaid
+flowchart TD
+classDef leftAlign fill:#fff, stroke:#000, text-align:left;
+
+    A["`**1. Import Airflow Libraries**
+    from airflow import DAG
+    from airflow.operators.bash import BashOperator
+	...`"]:::leftAlign --> B
+
+    B["`**2. Initialize DAG**
+    default_args = {...}</b>
+    dag = DAG(
+        dag_id='my_example_dag',
+        schedule='@daily',
+		...
+    )`"]:::leftAlign --> C
+
+    C["`**4. Define Airflow Tasks**
+    task = BashOperator(
+        task_id='print_hello',
+        bash_command='echo Hello World'
+    )`"]:::leftAlign --> D
+
+    D["`**5. Single Task, no dependencies here**`"]:::leftAlign
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#f1f8e9
+```
 #### orchestrated-duration-prediction-dag
 
+Here we're doing something more "realistic". Picked the original workflow duration-prediction.py script provided in the course, and adapted it for Airflow:
+- Load Data
+- Transform Data
+- Train a model with MLFlow
+- Clean up files
+
+You can use a LLM (like I did with Claude Sonnet 4) and request it to spit out an adaptation of your script to Airflow. Just bear in mind that there were major upgrades recently in Airflow, and the AI can give you scripting that mixes standards and functions from different versions. You will likely have to troubleshoot here and there, but it's still a fast and doable method to adapt your original code.
+
+```mermaid
+flowchart TD
+	classDef leftAlign fill:#fff, stroke:#000, text-align:left;
+
+    A["`**1. Import Libraries**
+...
+import xgboost as xgb
+...
+    from airflow.operators.python import PythonOperator
+    from airflow.operators.bash import BashOperator
+	...`"]:::leftAlign --> B
+
+    B["`**2. Initialize DAG & Default Args**
+    default_args = {...}</b>
+    dag = DAG(
+        'nyc_taxi_duration_prediction',
+    default_args=default_args,
+    description='Train ML model ...',
+    schedule='@monthly',
+    ...
+    )`"]:::leftAlign --> C
+
+    C["`**3. Define Python Functions**
+	mlflow.set_tracking_uri...
+	...
+def read_dataframe():
+	#Read and preprocess taxi data
+	...
+def get_training_dates():
+	#Calculate training and validation dates 
+	...
+def load_and_prepare_data():
+	#Load training and validation data
+	...
+def create_X():
+	#Create feature matrix
+	...
+def prepare_features():
+	#Prepare features for training
+	...
+def train_model():
+	#Train XGBoost model with MLflow tracking
+	...
+def validate_model():
+	#Validate the trained model performance
+	...`"]:::leftAlign --> D
+
+    D["`**4. Define Airflow Tasks**
+    calculate_dates_task = PythonOperator(
+    task_id='calculate_dates',
+    python_callable=get_training_dates,
+...
+)
+load_data_task = PythonOperator(
+    task_id='load_and_prepare_data',
+    python_callable=load_and_prepare_data,
+...
+)
+prepare_features_task = PythonOperator(
+    task_id='prepare_features',
+    python_callable=prepare_features,
+...
+)
+train_model_task = PythonOperator(
+    task_id='train_model',
+    python_callable=train_model,
+...
+cleanup_task = BashOperator(
+    task_id='cleanup_temp_files',
+    bash_command='rm -f /tmp/...
+...
+)
+	...`"]:::leftAlign --> E
+
+    E["`**5. Define Task Dependencies**
+    calculate_dates_task >> load_data_task >> prepare_features_task >> train_model_task >> cleanup_task`"]:::leftAlign
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0
+    style E fill:#f1f8e9
+```
+
+
 #### homework3-dag
+
+This DAG is very similar to the previous one. Simply changed some bits in the model training, specifically for the Homework 3 from MLOps Zoomcamp: using different feature engineering, a simple linear regression model intead of xgboost, saving the model in MLFlow registry and printing some parameters required in the exercises' answers.
+
+![alt text](image.png)
+
+This is how all this looks in the UI.
