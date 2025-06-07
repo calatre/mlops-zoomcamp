@@ -17,7 +17,7 @@
 			- [Environment](#environment-1)
 			- [Web UIs](#web-uis)
 			- [Running Airflow CLI Commands](#running-airflow-cli-commands)
-	- [(!In Construction!) Functional Part (!In Construction!)](#in-construction-functional-part-in-construction)
+	- [Functional Part](#functional-part)
 		- [About Apache Airflow](#about-apache-airflow)
 		- [About MLFlow](#about-mlflow)
 		- [Creating Pipelines AKA 'DAGs'](#creating-pipelines-aka-dags)
