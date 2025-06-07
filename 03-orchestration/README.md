@@ -211,7 +211,7 @@ DAGs ensure tasks execute in a specific, non-cyclical order, enabling efficient 
 
 **In practice:**
 
-It's a python script. With some extra stuff.
+_It's a python script. With some extra stuff._
 
 1. You import airflow libraries.
 2. You initialize an Airflow DAG (python function with name, schedule, tags...) along with some default parameters in a dictionary.
@@ -220,11 +220,11 @@ It's a python script. With some extra stuff.
 4. Inside each task, you will be calling "[airflow operators](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/operators.html)". 
    1. Use a PythonOperator to run a Python function you defined above, a BashOperator to run a command in the shell, an EmailOperator for sending an email... 
    2. ... or a _sensor_ for the task to be trigered by an external event, like a file appearing in a folder.
-5. You finish by describing your tasks orders and dependencies: task1 >> task 2 >> task3 ...
+5. You finish by describing your tasks order and dependencies: task1 >> task 2 >> task3 ...
    1. You can have a task depending on multiple tasks, or triggering multiple tasks or both. 
-6. You just can't close everything in a loop (remember the **A** in D**A**G stands for _**A**cyclic_ ), just schedule or use sensors smartly.
-7. Save it as a pyhton file. Drop it in the "/dags" folder in your airflow installation.
-8. Airflow regularly checks the folder for new/changed dags, or you can manually trigger a check from the UI or from the CLI using "airflow dags reserialize"
+   2. You just can't close everything in a loop (remember the **A** in D**A**G stands for _**A**cyclic_ ), just schedule or use sensors smartly.
+6. Save it as a python file. Drop it in the "/dags" folder in your airflow installation.
+7. Airflow regularly checks the folder for new/changed dags, or you can manually trigger a check from the UI or from the CLI using "airflow dags reserialize"
 
 **Visually, your Airflow script structure will look like this:**
 ```mermaid
